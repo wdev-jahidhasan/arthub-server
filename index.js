@@ -25,6 +25,37 @@ async function run() {
     await client.connect();
     await client.db("admin").command({ ping: 1 });
     console.log("Pinged your deployment. You successfully connected to MongoDB!");
+
+    const db = client.db("artHub");
+    const userCollection = db.collection("user");
+
+    // Profile update
+    app.patch('/api/users/update', async (req, res) => {
+      const { email, name, image } = req.body;
+
+      if (!email) {
+        return res.status(400).json({ success: false, message: "Email is required" });
+      }
+
+      const filter = { email: email };
+      const updatedDoc = {
+        $set: {
+          name: name,
+          image: image,
+        },
+      };
+
+      const result = await userCollection.updateOne(filter, updatedDoc);
+
+      res.send({
+        success: true,
+        message: "Profile updated successfully",
+        result,
+      });
+    });
+
+
+    // main catch block -----
   } catch (error) {
     console.error("MongoDB Connection Failed:", error);
   }
