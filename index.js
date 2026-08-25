@@ -42,6 +42,7 @@ async function run() {
         $set: {
           name: name,
           image: image,
+          updatedAt: new Date(),
         },
       };
 
