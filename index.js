@@ -87,7 +87,7 @@ async function run() {
 
     // get artworks (featured)
     app.get('/api/artworks/featured', async (req, res) => {
-      const result = await artworkCollection.find().sort({ createdAt: 1 }).limit(3).toArray();
+      const result = await artworkCollection.find().sort({ createdAt: 1 }).limit(6).toArray();
 
       res.send({
         success: true,
