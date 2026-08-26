@@ -85,6 +85,16 @@ async function run() {
       });
     });
 
+    // get artworks (featured)
+    app.get('/api/artworks/featured', async (req, res) => {
+      const result = await artworkCollection.find().sort({ createdAt: 1 }).limit(3).toArray();
+
+      res.send({
+        success: true,
+        data: result,
+      });
+    });
+
     // main catch block -----
   } catch (error) {
     console.error("MongoDB Connection Failed:", error);
