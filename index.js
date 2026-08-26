@@ -107,6 +107,18 @@ async function run() {
       });
     });
 
+    // Get artworks by specific artist ID
+    app.get('/api/artworks/user/:userId', async (req, res) => {
+      const userId = req.params.userId;
+      const query = { artistId: userId };
+      const result = await artworkCollection.find(query).toArray();
+
+      res.send({
+        success: true,
+        data: result,
+      });
+    });
+
     // main catch block -----
   } catch (error) {
     console.error("MongoDB Connection Failed:", error);
