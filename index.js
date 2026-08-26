@@ -2,7 +2,7 @@ const dotenv = require('dotenv');
 dotenv.config();
 const express = require('express');
 const cors = require('cors');
-const { MongoClient, ServerApiVersion } = require('mongodb');
+const { MongoClient, ServerApiVersion, ObjectId } = require('mongodb');
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -88,6 +88,18 @@ async function run() {
     // get artworks (featured)
     app.get('/api/artworks/featured', async (req, res) => {
       const result = await artworkCollection.find().sort({ createdAt: 1 }).limit(6).toArray();
+
+      res.send({
+        success: true,
+        data: result,
+      });
+    });
+
+    // get single artwork details
+    app.get('/api/artworks/:id', async (req, res) => {
+      const id = req.params.id;
+      const query = { _id: new ObjectId(id) };
+      const result = await artworkCollection.findOne(query);
 
       res.send({
         success: true,
