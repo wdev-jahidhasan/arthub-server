@@ -28,6 +28,7 @@ async function run() {
 
     const db = client.db("artHub");
     const userCollection = db.collection("user");
+    const artworkCollection = db.collection("artworks");
 
     // Profile update
     app.patch('/api/users/update', async (req, res) => {
@@ -55,6 +56,24 @@ async function run() {
       });
     });
 
+    // add new artwork by artist
+    app.post('/api/artworks/add', async (req, res) => {
+      const artworkData = req.body;
+
+      const newArtwork = {
+        ...artworkData,
+        price: Number(artworkData.price),
+        createdAt: new Date(),
+      };
+
+      const result = await artworkCollection.insertOne(newArtwork);
+
+      res.send({
+        success: true,
+        message: "Artwork published successfully",
+        result,
+      });
+    });
 
     // main catch block -----
   } catch (error) {
