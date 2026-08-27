@@ -29,6 +29,7 @@ async function run() {
     const db = client.db("artHub");
     const userCollection = db.collection("user");
     const artworkCollection = db.collection("artworks");
+    const subscriptionCollection = db.collection("subscriptions");
 
     // Profile update
     app.patch('/api/users/update', async (req, res) => {
@@ -117,6 +118,48 @@ async function run() {
         success: true,
         data: result,
       });
+    });
+
+
+    // subscription saving and plan updating related
+    app.post('/subscription', async (req, res) => {
+      const { sessionId, userId, priceId } = req.body;
+
+      const PRO_PRICE_ID = process.env.STRIPE_PRO_PRICE_ID;
+      const PREMIUM_PRICE_ID = process.env.STRIPE_PREMIUM_PRICE_ID;
+
+      let planType = 'free';
+      if (priceId === PRO_PRICE_ID) {
+        planType = 'Pro';
+      } else if (priceId === PREMIUM_PRICE_ID) {
+        planType = 'Premium';
+      }
+
+      isExist = await subscriptionCollection.findOne({ sessionId })
+
+      if(isExist) {
+        return res.json({msg : "Payment already done"})
+      }
+
+      await subscriptionCollection.insertOne({
+        sessionId,
+        userId,
+        priceId,
+        plan: planType,
+        createdAt: new Date()
+      });
+
+      // update user role
+      await userCollection.updateOne(
+        { _id: new ObjectId(userId) },
+        {
+          $set: {
+            plan: planType,
+          }
+        }
+      );
+
+      res.json({ success: true, msg: "Subscription updated successfully!" });
     });
 
     // main catch block -----
