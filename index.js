@@ -189,7 +189,11 @@ async function run() {
 
     // get purchased artworks
     app.get('/api/purchases', async (req, res) => {
-      const result = await purchaseCollection.find().sort({ createdAt: -1 }).toArray();
+      const userId = req.query.userId;
+
+      const query = userId ? { "metadata.userId": userId } : {};
+
+      const result = await purchaseCollection.find(query).sort({ createdAt: -1 }).toArray();
 
       res.send({
         success: true,
