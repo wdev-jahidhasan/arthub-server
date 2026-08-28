@@ -187,6 +187,29 @@ async function run() {
       res.json({ success: true, message: "Purchase saved successfully", result });
     });
 
+
+    // post comment to db
+    app.post('/api/reviews', async (req, res) => {
+      try {
+        const { artworkId, comment, userEmail, userId } = req.body;
+
+        const newComment = {
+          artworkId,
+          comment,
+          userEmail: userEmail || "Anonymous",
+          userId: userId || null,
+          createdAt: new Date(),
+        };
+
+        const result = await db.collection("comments").insertOne(newComment);
+
+        res.status(201).json({ success: true, message: "Comment posted successfully", result });
+      } catch (error) {
+        console.error("Error in /api/reviews:", error);
+        res.status(500).json({ success: false, message: error.message });
+      }
+    });
+
     // main catch block -----
   } catch (error) {
     console.error("MongoDB Connection Failed:", error);
