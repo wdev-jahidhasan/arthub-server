@@ -187,6 +187,15 @@ async function run() {
       res.json({ success: true, message: "Purchase saved successfully", result });
     });
 
+    // get purchased artworks
+    app.get('/api/purchases', async (req, res) => {
+      const result = await purchaseCollection.find().sort({ createdAt: -1 }).toArray();
+
+      res.send({
+        success: true,
+        data: result,
+      });
+    });
 
     // post comment to db
     app.post('/api/reviews', async (req, res) => {
