@@ -163,33 +163,28 @@ async function run() {
       res.json({ success: true, msg: "Subscription updated successfully!" });
     });
 
-    // save the payment info to db
+    // save purchase related payment to db
     app.post('/api/purchases', async (req, res) => {
-      try {
-        const { sessionId, paymentIntentId, customerEmail, amountTotal, currency, metadata, status } = req.body;
+      const { sessionId, paymentIntentId, customerEmail, amountTotal, currency, metadata, status } = req.body;
 
-        const existingPurchase = await purchaseCollection("purchases").findOne({ sessionId });
+      const existingPurchase = await db.collection("purchases").findOne({ sessionId });
 
-        if (existingPurchase) {
-          return res.status(200).json({ success: true, message: "Purchase already recorded" });
-        }
-
-        const result = await purchaseCollection("purchases").insertOne({
-          sessionId,
-          paymentIntentId,
-          customerEmail,
-          amountTotal,
-          currency,
-          metadata,
-          status,
-          createdAt: new Date(),
-        });
-
-        res.status(201).json({ success: true, message: "Purchase saved successfully", result });
-      } catch (error) {
-        console.error("Error saving purchase:", error);
-        res.status(500).json({ success: false, message: "Internal server error" });
+      if (existingPurchase) {
+        return res.json({ success: true, message: "Purchase already recorded" });
       }
+
+      const result = await db.collection("purchases").insertOne({
+        sessionId,
+        paymentIntentId,
+        customerEmail,
+        amountTotal,
+        currency,
+        metadata,
+        status,
+        createdAt: new Date(),
+      });
+
+      res.json({ success: true, message: "Purchase saved successfully", result });
     });
 
     // main catch block -----
