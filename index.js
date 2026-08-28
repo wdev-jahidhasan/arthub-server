@@ -30,6 +30,7 @@ async function run() {
     const userCollection = db.collection("user");
     const artworkCollection = db.collection("artworks");
     const subscriptionCollection = db.collection("subscriptions");
+    const purchaseCollection = db.collection("purchases");
 
     // Profile update
     app.patch('/api/users/update', async (req, res) => {
@@ -137,8 +138,8 @@ async function run() {
 
       isExist = await subscriptionCollection.findOne({ sessionId })
 
-      if(isExist) {
-        return res.json({msg : "Payment already done"})
+      if (isExist) {
+        return res.json({ msg: "Payment already done" })
       }
 
       await subscriptionCollection.insertOne({
@@ -160,6 +161,35 @@ async function run() {
       );
 
       res.json({ success: true, msg: "Subscription updated successfully!" });
+    });
+
+    // save the payment info to db
+    app.post('/api/purchases', async (req, res) => {
+      try {
+        const { sessionId, paymentIntentId, customerEmail, amountTotal, currency, metadata, status } = req.body;
+
+        const existingPurchase = await purchaseCollection("purchases").findOne({ sessionId });
+
+        if (existingPurchase) {
+          return res.status(200).json({ success: true, message: "Purchase already recorded" });
+        }
+
+        const result = await purchaseCollection("purchases").insertOne({
+          sessionId,
+          paymentIntentId,
+          customerEmail,
+          amountTotal,
+          currency,
+          metadata,
+          status,
+          createdAt: new Date(),
+        });
+
+        res.status(201).json({ success: true, message: "Purchase saved successfully", result });
+      } catch (error) {
+        console.error("Error saving purchase:", error);
+        res.status(500).json({ success: false, message: "Internal server error" });
+      }
     });
 
     // main catch block -----
