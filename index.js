@@ -201,7 +201,7 @@ async function run() {
       });
     });
 
-    // post comment to db
+    // post review to db
     app.post('/api/reviews', async (req, res) => {
       try {
         const { artworkId, comment, userEmail, userId } = req.body;
@@ -214,13 +214,101 @@ async function run() {
           createdAt: new Date(),
         };
 
-        const result = await db.collection("comments").insertOne(newComment);
+        const result = await db.collection("reviews").insertOne(newComment);
 
         res.status(201).json({ success: true, message: "Comment posted successfully", result });
       } catch (error) {
         console.error("Error in /api/reviews:", error);
         res.status(500).json({ success: false, message: error.message });
       }
+    });
+
+    // reviews by specific user ID
+    app.get('/api/reviews/user/:userId', async (req, res) => {
+      try {
+        const userId = req.params.userId;
+        const query = { userId: userId };
+        const result = await db.collection("reviews").find(query).sort({ createdAt: -1 }).toArray();
+
+        res.send({
+          success: true,
+          data: result,
+        });
+      } catch (error) {
+        res.status(500).json({ success: false, message: error.message });
+      }
+    });
+
+    // Update a review
+    app.patch('/api/reviews/:id', async (req, res) => {
+      try {
+        const id = req.params.id;
+        const { comment } = req.body;
+        const filter = { _id: new ObjectId(id) };
+        const updatedDoc = {
+          $set: {
+            comment: comment,
+            updatedAt: new Date(),
+          },
+        };
+
+        const result = await db.collection("reviews").updateOne(filter, updatedDoc);
+        res.send({ success: true, message: "Review updated successfully", result });
+      } catch (error) {
+        res.status(500).json({ success: false, message: error.message });
+      }
+    });
+
+    // Delete a review
+    app.delete('/api/reviews/:id', async (req, res) => {
+      try {
+        const id = req.params.id;
+        const query = { _id: new ObjectId(id) };
+        const result = await db.collection("reviews").deleteOne(query);
+
+        res.send({ success: true, message: "Review deleted successfully", result });
+      } catch (error) {
+        res.status(500).json({ success: false, message: error.message });
+      }
+    });
+
+
+    //  get purchased artworks and comments by id
+    app.get('/api/purchases/user-safe/:userId', async (req, res) => {
+      const userId = req.params.userId;
+
+      const purchases = await db.collection("purchases").find({
+        $or: [
+          { userId: userId },
+          { "metadata.userId": userId },
+          { customerEmail: userId }
+        ]
+      }).toArray();
+
+      const detailedPurchases = await Promise.all(
+        purchases.map(async (purchase) => {
+          let artId = purchase.artworkId || purchase.metadata?.artworkId;
+
+          let artwork = null;
+          if (artId) {
+            try {
+              artwork = await db.collection("artworks").findOne({ _id: new ObjectId(artId) });
+            } catch (e) {
+              artwork = null;
+            }
+          }
+
+          return {
+            ...purchase,
+            artworkDetails: artwork
+          };
+        })
+      );
+
+      res.send({
+        success: true,
+        data: detailedPurchases,
+      });
     });
 
     // main catch block -----
