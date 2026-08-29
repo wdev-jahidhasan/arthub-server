@@ -97,6 +97,55 @@ async function run() {
       });
     });
 
+    // Get all artworks with search, filter, and sorting for frontend
+    app.get('/api/artworks/search-filter-sort', async (req, res) => {
+      try {
+        const { search, category, minPrice, maxPrice, sort } = req.query;
+        let query = {};
+
+        // 1. Search by title
+        if (search && search.trim() !== '') {
+          query.title = { $regex: search.trim(), $options: 'i' };
+        }
+
+        // 2. Category Filter (Handles 'sketch', 'painting', 'digital', 'sculpture' etc.)
+        if (category && category !== 'All' && category !== '') {
+          query.category = { $regex: `^${category}$`, $options: 'i' };
+        }
+
+        // 3. Price Range Filter
+        if ((minPrice !== undefined && minPrice !== '') || (maxPrice !== undefined && maxPrice !== '')) {
+          query.price = {};
+          if (minPrice !== undefined && minPrice !== '') {
+            query.price.$gte = Number(minPrice);
+          }
+          if (maxPrice !== undefined && maxPrice !== '') {
+            query.price.$lte = Number(maxPrice);
+          }
+        }
+
+        // 4. Sorting Logic
+        let sortQuery = { createdAt: -1 };
+        if (sort === 'low-high') {
+          sortQuery = { price: 1 };
+        } else if (sort === 'high-low') {
+          sortQuery = { price: -1 };
+        } else if (sort === 'newest') {
+          sortQuery = { createdAt: -1 };
+        }
+
+        const artworks = await artworkCollection.find(query).sort(sortQuery).toArray();
+
+        res.send({
+          success: true,
+          data: artworks,
+        });
+      } catch (error) {
+        console.error("Error in search-filter-sort API:", error);
+        res.status(500).send({ success: false, message: "Internal server error" });
+      }
+    });
+
     // get single artwork details
     app.get('/api/artworks/:id', async (req, res) => {
       const id = req.params.id;
