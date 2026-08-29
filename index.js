@@ -391,6 +391,42 @@ async function run() {
       });
     });
 
+    // Get analytics summary with sales data
+    app.get('/api/analytics/artist/:userId', async (req, res) => {
+      const artistId = req.params.userId;
+
+      const artistArtworks = await artworkCollection.find({ artistId: artistId }).toArray();
+      const totalArtworks = artistArtworks.length;
+
+      const artworkIdsStr = artistArtworks.map(art => art._id.toString());
+      const artworkIdsObj = artistArtworks.map(art => art._id);
+
+      const purchases = await purchaseCollection.find({
+        $or: [
+          { artworkId: { $in: artworkIdsStr } },
+          { artworkId: { $in: artworkIdsObj } },
+          { "metadata.artworkId": { $in: artworkIdsStr } },
+          { "metadata.artworkId": { $in: artworkIdsObj } }
+        ]
+      }).sort({ createdAt: -1 }).toArray();
+
+      const totalSalesCount = purchases.length;
+      const totalEarnings = purchases.reduce((acc, purchase) => {
+        const amount = purchase.amountTotal || Number(purchase.metadata?.price) || 0;
+        return acc + amount;
+      }, 0);
+
+      res.send({
+        success: true,
+        data: {
+          totalEarnings,
+          totalSalesCount,
+          totalArtworks,
+          purchases
+        }
+      });
+    });
+
     // main catch block -----
   } catch (error) {
     console.error("MongoDB Connection Failed:", error);
