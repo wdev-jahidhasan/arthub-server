@@ -427,6 +427,29 @@ async function run() {
       });
     });
 
+    // Get all users for admin
+    app.get('/api/users', async (req, res) => {
+      const result = await userCollection.find().toArray();
+      res.send({ success: true, data: result });
+    });
+
+    // Update user role (user / artist / admin)
+    app.patch('/api/users/role/:id', async (req, res) => {
+      const id = req.params.id;
+      const { role } = req.body;
+
+      const filter = { _id: new ObjectId(id) };
+      const updatedDoc = {
+        $set: {
+          role: role,
+          updatedAt: new Date()
+        }
+      };
+
+      const result = await userCollection.updateOne(filter, updatedDoc);
+      res.send({ success: true, message: "User role updated successfully", result });
+    });
+
     // main catch block -----
   } catch (error) {
     console.error("MongoDB Connection Failed:", error);
