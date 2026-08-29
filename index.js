@@ -450,6 +450,99 @@ async function run() {
       res.send({ success: true, message: "User role updated successfully", result });
     });
 
+    // Admin Analytics & Charts api
+    app.get('/api/admin/analytics', async (req, res) => {
+      const totalUsers = await userCollection.countDocuments({
+        role: "user"
+      });
+
+      const totalArtists = await userCollection.countDocuments({
+        role: "artist"
+      });
+
+      const totalArtworksSold = await purchaseCollection.countDocuments();
+
+      // Total Revenue Calculation
+      const revenueResult = await purchaseCollection.aggregate([
+        {
+          $group: {
+            _id: null,
+            totalRevenue: {
+              $sum: {
+                $cond: [
+                  { $gt: ["$amountTotal", null] },
+                  "$amountTotal",
+                  { $toDecimal: { $ifNull: ["$metadata.price", 0] } }
+                ]
+              }
+            }
+          }
+        }
+      ]).toArray();
+
+      const totalRevenue = revenueResult.length > 0 ? Number(revenueResult[0].totalRevenue) : 0;
+      const finalRevenue = totalRevenue > 10000 ? totalRevenue / 100 : totalRevenue;
+
+      // Artworks by Category (Pie Chart Data)
+      const categoryData = await artworkCollection.aggregate([
+        {
+          $group: {
+            _id: { $ifNull: ["$category", "General"] },
+            count: { $sum: 1 }
+          }
+        },
+        {
+          $project: {
+            _id: 0,
+            name: "$_id",
+            value: "$count"
+          }
+        }
+      ]).toArray();
+
+      // Sales Chart Data grouped by date
+      const salesData = await purchaseCollection.aggregate([
+        {
+          $group: {
+            _id: {
+              $dateToString: { format: "%Y-%m-%d", date: "$createdAt" }
+            },
+            sales: { $sum: 1 },
+            revenue: {
+              $sum: {
+                $cond: [
+                  { $gt: ["$amountTotal", null] },
+                  "$amountTotal",
+                  { $toDecimal: { $ifNull: ["$metadata.price", 0] } }
+                ]
+              }
+            }
+          }
+        },
+        { $sort: { "_id": 1 } },
+        {
+          $project: {
+            _id: 0,
+            date: "$_id",
+            sales: "$sales",
+            revenue: "$revenue"
+          }
+        }
+      ]).toArray();
+
+      res.send({
+        success: true,
+        data: {
+          totalUsers,
+          totalArtists,
+          totalArtworksSold,
+          totalRevenue: finalRevenue,
+          categoryData,
+          salesData
+        }
+      });
+    });
+
     // main catch block -----
   } catch (error) {
     console.error("MongoDB Connection Failed:", error);
