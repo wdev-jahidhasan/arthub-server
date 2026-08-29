@@ -348,6 +348,49 @@ async function run() {
       });
     });
 
+    // Get sales history for a specific artist
+    app.get('/api/sales/artist/:userId', async (req, res) => {
+      const artistId = req.params.userId;
+
+      const artistArtworks = await artworkCollection.find({ artistId: artistId }).toArray();
+      const artworkIdsStr = artistArtworks.map(art => art._id.toString());
+      const artworkIdsObj = artistArtworks.map(art => art._id);
+
+      const purchases = await purchaseCollection.find({
+        $or: [
+          { artworkId: { $in: artworkIdsStr } },
+          { artworkId: { $in: artworkIdsObj } },
+          { "metadata.artworkId": { $in: artworkIdsStr } },
+          { "metadata.artworkId": { $in: artworkIdsObj } }
+        ]
+      }).sort({ createdAt: -1 }).toArray();
+
+      const detailedSales = await Promise.all(
+        purchases.map(async (purchase) => {
+          let artId = purchase.artworkId || purchase.metadata?.artworkId;
+
+          let artwork = null;
+          if (artId) {
+            const queryId = typeof artId === 'string' && artId.length === 24 ? new ObjectId(artId) : artId;
+            artwork = await artworkCollection.findOne({
+              $or: [{ _id: queryId }, { _id: artId }]
+            });
+          }
+
+          return {
+            ...purchase,
+            artwork: artwork,
+            totalAmount: purchase.amountTotal || purchase.metadata?.price || 0
+          };
+        })
+      );
+
+      res.send({
+        success: true,
+        data: detailedSales,
+      });
+    });
+
     // main catch block -----
   } catch (error) {
     console.error("MongoDB Connection Failed:", error);
