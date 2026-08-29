@@ -311,6 +311,43 @@ async function run() {
       });
     });
 
+    // Update an artwork
+    app.patch('/api/artworks/:id', async (req, res) => {
+      const id = req.params.id;
+      const { title, description, price } = req.body;
+
+      const filter = { _id: new ObjectId(id) };
+      const updatedDoc = {
+        $set: {
+          ...(title && { title }),
+          ...(description && { description }),
+          ...(price !== undefined && { price: Number(price) }),
+          updatedAt: new Date(),
+        },
+      };
+
+      const result = await artworkCollection.updateOne(filter, updatedDoc);
+
+      res.send({
+        success: true,
+        message: "Artwork updated successfully",
+        result
+      });
+    });
+
+    // Delete an artwork
+    app.delete('/api/artworks/:id', async (req, res) => {
+      const id = req.params.id;
+      const query = { _id: new ObjectId(id) };
+      const result = await artworkCollection.deleteOne(query);
+
+      res.send({
+        success: true,
+        message: "Artwork deleted successfully",
+        result
+      });
+    });
+
     // main catch block -----
   } catch (error) {
     console.error("MongoDB Connection Failed:", error);
