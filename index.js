@@ -543,6 +543,49 @@ async function run() {
       });
     });
 
+    // Admin View All Transactions api
+    app.get('/api/admin/transactions', async (req, res) => {
+      const purchases = await purchaseCollection.find().toArray();
+      const formattedPurchases = purchases.map(item => ({
+        _id: item._id,
+        transactionId: item.paymentIntentId || item.sessionId || 'N/A',
+        type: 'purchase',
+        email: item.customerEmail || item.metadata?.userEmail || 'N/A',
+        amount: item.amountTotal || item.metadata?.price || 0,
+        date: item.createdAt
+      }));
+
+      const subscriptions = await subscriptionCollection.find().toArray();
+
+      const users = await userCollection.find().toArray();
+      const userMap = {};
+      users.forEach(user => {
+        userMap[user._id.toString()] = user.email;
+      });
+
+      const formattedSubs = subscriptions.map(sub => {
+        const userEmail = sub.userId ? userMap[sub.userId.toString()] : 'N/A';
+
+        return {
+          _id: sub._id,
+          transactionId: sub.sessionId || 'N/A',
+          type: 'subscription',
+          email: userEmail || 'N/A',
+          amount: sub.amount || (sub.planType === 'Pro' ? 20 : 10),
+          date: sub.createdAt
+        };
+      });
+
+      const allTransactions = [...formattedPurchases, ...formattedSubs].sort(
+        (a, b) => new Date(b.date) - new Date(a.date)
+      );
+
+      res.send({
+        success: true,
+        data: allTransactions
+      });
+    });
+
     // main catch block -----
   } catch (error) {
     console.error("MongoDB Connection Failed:", error);
