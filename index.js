@@ -101,80 +101,88 @@ async function run() {
 
     // Get all artworks with search, filter, sorting and pagination
     app.get('/api/artworks/search-filter-sort', async (req, res) => {
-      try {
-        const { search, category, minPrice, maxPrice, sort, page, limit } = req.query;
-        let query = {};
+      const { search, category, artistId, minPrice, maxPrice, sort, page = 1, limit = 9 } = req.query;
 
-        // 1. Search by title
-        if (search && search.trim() !== '') {
-          query.title = { $regex: search.trim(), $options: 'i' };
-        }
+      let query = {};
 
-        // 2. Category Filter (Handles 'sketch', 'painting', 'digital', 'sculpture' etc.)
-        if (category && category !== 'All' && category !== '') {
-          query.category = { $regex: `^${category}$`, $options: 'i' };
-        }
-
-        // 3. Price Range Filter
-        if ((minPrice !== undefined && minPrice !== '') || (maxPrice !== undefined && maxPrice !== '')) {
-          query.price = {};
-          if (minPrice !== undefined && minPrice !== '') {
-            query.price.$gte = Number(minPrice);
-          }
-          if (maxPrice !== undefined && maxPrice !== '') {
-            query.price.$lte = Number(maxPrice);
-          }
-        }
-
-        // 4. Sorting Logic
-        let sortQuery = { createdAt: -1 };
-        if (sort === 'low-high') {
-          sortQuery = { price: 1 };
-        } else if (sort === 'high-low') {
-          sortQuery = { price: -1 };
-        } else if (sort === 'newest') {
-          sortQuery = { createdAt: -1 };
-        }
-
-        // 5. Pagination Logic
-        const pageNumber = parseInt(page) || 1;
-        const pageSize = parseInt(limit) || 9;
-        const skip = (pageNumber - 1) * pageSize;
-
-        // Total count for current filter query (to calculate total pages)
-        const totalArtworks = await artworkCollection.countDocuments(query);
-        const totalPages = Math.ceil(totalArtworks / pageSize);
-
-        // Fetch paginated data
-        const artworks = await artworkCollection
-          .find(query)
-          .sort(sortQuery)
-          .skip(skip)
-          .limit(pageSize)
-          .toArray();
-
-        res.send({
-          success: true,
-          data: artworks,
-          totalPages: totalPages,
-          currentPage: pageNumber,
-          totalArtworks: totalArtworks
-        });
-      } catch (error) {
-        console.error("Error in search-filter-sort API:", error);
-        res.status(500).send({ success: false, message: "Internal server error" });
+      if (search) {
+        query.title = { $regex: search, $options: 'i' };
       }
-    });
 
-    // get single artwork details
-    app.get('/api/artworks/:id', async (req, res) => {
-      const id = req.params.id;
-      const query = { _id: new ObjectId(id) };
-      const result = await artworkCollection.findOne(query);
+      if (category && category !== 'All') {
+        query.category = category;
+      }
+
+      if (artistId) {
+        query.artistId = artistId;
+      }
+
+      if (minPrice || maxPrice) {
+        query.price = {};
+        if (minPrice) query.price.$gte = Number(minPrice);
+        if (maxPrice) query.price.$lte = Number(maxPrice);
+      }
+
+      let sortOptions = {};
+      if (sort === 'newest') sortOptions.createdAt = -1;
+      else if (sort === 'low-high') sortOptions.price = 1;
+      else if (sort === 'high-low') sortOptions.price = -1;
+
+      const skip = (Number(page) - 1) * Number(limit);
+
+      const result = await artworkCollection
+        .find(query)
+        .sort(sortOptions)
+        .skip(skip)
+        .limit(Number(limit))
+        .toArray();
+
+      const total = await artworkCollection.countDocuments(query);
 
       res.send({
         success: true,
         data: result,
+        totalPages: Math.ceil(total / Number(limit))
+      });
+    });
+
+    // get single artwork details with artist info lookup
+    app.get('/api/artworks/:id', async (req, res) => {
+      const id = req.params.id;
+
+      const result = await artworkCollection.aggregate([
+        { $match: { _id: new ObjectId(id) } },
+        {
+          $lookup: {
+            from: "user",
+            let: { artistIdStr: "$artistId" },
+            pipeline: [
+              {
+                $match: {
+                  $expr: {
+                    $eq: ["$_id", { $toObjectId: "$$artistIdStr" }]
+                  }
+                }
+              }
+            ],
+            as: "artistInfo"
+          }
+        },
+        {
+          $unwind: {
+            path: "$artistInfo",
+            preserveNullAndEmptyArrays: true
+          }
+        }
+      ]).toArray();
+
+      if (!result || result.length === 0) {
+        return res.status(404).send({ success: false, message: "Artwork not found" });
+      }
+
+      res.send({
+        success: true,
+        data: result[0],
       });
     });
 
