@@ -278,6 +278,30 @@ async function run() {
       });
     });
 
+    // Get reviews by specific artwork ID
+    app.get('/api/reviews', async (req, res) => {
+      const artworkId = req.query.artworkId;
+
+      let query = {};
+      if (artworkId) {
+        const isValidMongoId = ObjectId.isValid(artworkId);
+
+        query = {
+          $or: [
+            { artworkId: artworkId },
+            ...(isValidMongoId ? [{ artworkId: new ObjectId(artworkId) }] : [])
+          ]
+        };
+      }
+
+      const result = await db.collection("reviews").find(query).sort({ createdAt: -1 }).toArray();
+
+      res.send({
+        success: true,
+        data: result,
+      });
+    });
+
     // post review to db
     app.post('/api/reviews', async (req, res) => {
       try {
