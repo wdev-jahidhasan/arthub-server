@@ -97,10 +97,10 @@ async function run() {
       });
     });
 
-    // Get all artworks with search, filter, and sorting for frontend
+    // Get all artworks with search, filter, sorting and pagination
     app.get('/api/artworks/search-filter-sort', async (req, res) => {
       try {
-        const { search, category, minPrice, maxPrice, sort } = req.query;
+        const { search, category, minPrice, maxPrice, sort, page, limit } = req.query;
         let query = {};
 
         // 1. Search by title
@@ -134,11 +134,29 @@ async function run() {
           sortQuery = { createdAt: -1 };
         }
 
-        const artworks = await artworkCollection.find(query).sort(sortQuery).toArray();
+        // 5. Pagination Logic
+        const pageNumber = parseInt(page) || 1;
+        const pageSize = parseInt(limit) || 9;
+        const skip = (pageNumber - 1) * pageSize;
+
+        // Total count for current filter query (to calculate total pages)
+        const totalArtworks = await artworkCollection.countDocuments(query);
+        const totalPages = Math.ceil(totalArtworks / pageSize);
+
+        // Fetch paginated data
+        const artworks = await artworkCollection
+          .find(query)
+          .sort(sortQuery)
+          .skip(skip)
+          .limit(pageSize)
+          .toArray();
 
         res.send({
           success: true,
           data: artworks,
+          totalPages: totalPages,
+          currentPage: pageNumber,
+          totalArtworks: totalArtworks
         });
       } catch (error) {
         console.error("Error in search-filter-sort API:", error);
